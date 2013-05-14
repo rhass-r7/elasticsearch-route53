@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.List;
 
 import org.elasticsearch.ElasticSearchException;
 import org.elasticsearch.common.collect.Lists;
@@ -19,7 +20,9 @@ import com.amazonaws.services.route53.AmazonRoute53Client;
 import com.amazonaws.services.route53.model.Change;
 import com.amazonaws.services.route53.model.ChangeAction;
 import com.amazonaws.services.route53.model.ChangeBatch;
+import com.amazonaws.services.route53.model.ChangeInfo;
 import com.amazonaws.services.route53.model.ChangeResourceRecordSetsRequest;
+import com.amazonaws.services.route53.model.ListResourceRecordSetsRequest;
 import com.amazonaws.services.route53.model.RRType;
 import com.amazonaws.services.route53.model.ResourceRecord;
 import com.amazonaws.services.route53.model.ResourceRecordSet;
@@ -74,6 +77,30 @@ public class Route53PluginService extends AbstractLifecycleComponent<Route53Plug
 	
 	@Override
 	protected void doClose() throws ElasticSearchException {		
+        logger.info("Closing Route53 plugin");
+		
+        String publicHostName = retrievePublicHostName();
+        String recordName = getRecordName();
+        String hostName = retrieveHostName();
+
+        if (recordExists(recordName, hostName)) {
+        
+	        ResourceRecordSet recordSet = recordSet(publicHostName, hostName,
+					recordName);
+	
+	        Change change = new Change(ChangeAction.DELETE, recordSet);
+	        ChangeResourceRecordSetsRequest request = new ChangeResourceRecordSetsRequest(hostedZoneId, new ChangeBatch(Lists.newArrayList(change)));
+	        try {
+		        ChangeInfo info = route53.changeResourceRecordSets(request).getChangeInfo();
+		        logger.info("ChangeInfo comment: [{}], id: [{}], status: [{}]", info.getComment(), info.getId(), info.getStatus());
+	        } catch(Exception e) {
+	        	logger.error("Exception when removing record", e);
+	        }
+	        
+	        logger.info("Route53 record has been deleted");
+        } else {
+        	logger.info("Route53 didn't exist, not doing anything.");
+        }
 	}
 
 	@Override
@@ -82,19 +109,57 @@ public class Route53PluginService extends AbstractLifecycleComponent<Route53Plug
         String publicHostName = retrievePublicHostName();
         String hostName = retrieveHostName();
 
-        // (the horrible regular expression is to remove the trailing dot, which python resolves by just one function "strip" :P)
-        ResourceRecordSet recordSet = new ResourceRecordSet((clusterName+"."+hostedZoneName)/*.replaceAll("\\.+$", "")*/, RRType.CNAME);
-        recordSet.setTTL(60l);
+        String recordName = getRecordName();
         
-        ResourceRecord record = new ResourceRecord(publicHostName);
-        recordSet.setResourceRecords(Lists.newArrayList(record));
-        recordSet.setSetIdentifier(hostName);
-        recordSet.setWeight(100l);
-        Change change = new Change(ChangeAction.CREATE, recordSet);
-        ChangeResourceRecordSetsRequest request = new ChangeResourceRecordSetsRequest(hostedZoneId, new ChangeBatch(Lists.newArrayList(change)));
-        route53.changeResourceRecordSets(request);
+        if (recordExists(recordName, hostName)) {
+        	logger.info("Route53 record already exists, so no need to add it...");
+        } else {
+        
+	        ResourceRecordSet recordSet = recordSet(publicHostName, hostName,
+					recordName);
+	        Change change = new Change(ChangeAction.CREATE, recordSet);
+	        ChangeResourceRecordSetsRequest request = new ChangeResourceRecordSetsRequest(hostedZoneId, new ChangeBatch(Lists.newArrayList(change)));
+	        route53.changeResourceRecordSets(request);
+	        
+	        logger.info("Created Route53 record");
+        }
 	}
 
+	private ResourceRecordSet recordSet(String publicHostName, String hostName,
+			String recordName) {
+		ResourceRecordSet recordSet = new ResourceRecordSet(recordName, RRType.CNAME);
+		recordSet.setTTL(60l);
+		
+		ResourceRecord record = new ResourceRecord(publicHostName);
+		recordSet.setResourceRecords(Lists.newArrayList(record));
+		recordSet.setSetIdentifier(hostName);
+		recordSet.setWeight(100l);
+		return recordSet;
+	}
+
+	private String getRecordName() {
+		String recordName = clusterName+"."+hostedZoneName+".";
+		return recordName;
+	}
+
+	private boolean recordExists(String recordName, String identifier) {
+        ListResourceRecordSetsRequest listRequest = new ListResourceRecordSetsRequest(hostedZoneId);
+        listRequest.setStartRecordName(recordName);
+        listRequest.setStartRecordType(RRType.CNAME.toString());
+        List<ResourceRecordSet> records = route53.listResourceRecordSets(listRequest).getResourceRecordSets();
+        for (ResourceRecordSet resourceRecordSet : records) {
+			if (!recordName.equals(resourceRecordSet.getName())) {
+				break;
+			} else {
+				if (RRType.CNAME.toString().equals(resourceRecordSet.getType()) &&
+						identifier.equals(resourceRecordSet.getSetIdentifier())) {
+					return true;
+				}
+			}
+		}
+        return false;
+	}
+	
 	private String retrievePublicHostName() {
 		String publicHostName;
 		try {
@@ -119,7 +184,7 @@ public class Route53PluginService extends AbstractLifecycleComponent<Route53Plug
 
 	@Override
 	protected void doStop() throws ElasticSearchException {
-        logger.info("Route53 plugin stopped");
+        logger.info("Stopping Route53 plugin");
 	}
 	
 	private AmazonRoute53 route53Client() {
