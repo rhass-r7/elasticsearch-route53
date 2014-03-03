@@ -7,7 +7,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.List;
 
-import org.elasticsearch.ElasticSearchException;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.common.collect.Lists;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
@@ -76,7 +76,7 @@ public class Route53PluginService extends AbstractLifecycleComponent<Route53Plug
 //	}
 	
 	@Override
-	protected void doClose() throws ElasticSearchException {		
+	protected void doClose() throws ElasticsearchException {		
         logger.info("Closing Route53 plugin");
 		
         String publicHostName = retrievePublicHostName();
@@ -104,7 +104,7 @@ public class Route53PluginService extends AbstractLifecycleComponent<Route53Plug
 	}
 
 	@Override
-	protected void doStart() throws ElasticSearchException {
+	protected void doStart() throws ElasticsearchException {
         logger.info("Assigning Route53 record for hosted zone name [{}]", hostedZoneName);
         String publicHostName = retrievePublicHostName();
         String hostName = retrieveHostName();
@@ -165,7 +165,7 @@ public class Route53PluginService extends AbstractLifecycleComponent<Route53Plug
 		try {
 			publicHostName = retrieveMetadata("public-hostname");
 		} catch (Exception e) {
-			throw new ElasticSearchException("Could not retrieve the EC2 instance's public host name, so could not finish with my mission.", e);
+			throw new ElasticsearchException("Could not retrieve the EC2 instance's public host name, so could not finish with my mission.", e);
 		}
         logger.debug("public host name is [{}]", publicHostName);
 		return publicHostName;
@@ -176,14 +176,14 @@ public class Route53PluginService extends AbstractLifecycleComponent<Route53Plug
 		try {
 			hostName = retrieveMetadata("hostname");
 		} catch (Exception e) {
-			throw new ElasticSearchException("Could not retrieve the EC2 instance's host name, so could not finish with my mission.", e);
+			throw new ElasticsearchException("Could not retrieve the EC2 instance's host name, so could not finish with my mission.", e);
 		}
         logger.debug("host name is [{}]", hostName);
 		return hostName;
 	}
 
 	@Override
-	protected void doStop() throws ElasticSearchException {
+	protected void doStop() throws ElasticsearchException {
         logger.info("Stopping Route53 plugin");
 	}
 	
