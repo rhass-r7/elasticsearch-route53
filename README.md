@@ -11,6 +11,11 @@ TODO change README accordingly
     
     $ bin/plugin -url https://s3-eu-west-1.amazonaws.com/downloads.9apps.net/elasticsearch-Route53Plugin-0.90.0.zip -install Route53Plugin
 
+On Elasticsearch 1.0:
+
+    $ bin/plugin -url https://s3-eu-west-1.amazonaws.com/downloads.9apps.net/elasticsearch-Route53Plugin-1.0.1.zip -install Route53Plugin
+
+
 # Generating the installable plugin
 
 To generate the plugin for installation you need to use maven:
