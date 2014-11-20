@@ -18,15 +18,15 @@ public class Route53Plugin extends AbstractPlugin {
 
     public String name() {
         return "route53-plugin";
-	}
+  }
 
-	public String description() {
+  public String description() {
         return "Plugin which registers the current Elasticsearch node into Route53";
-	}
-	
+  }
+
     @Override
     public Collection<Class<? extends LifecycleComponent>> services() {
-		Collection<Class<? extends LifecycleComponent>> services = newArrayList();
+    Collection<Class<? extends LifecycleComponent>> services = newArrayList();
         if (settings.getAsBoolean("route53.registration.enabled", true)) {
             services.add(Route53PluginService.class);
         }
